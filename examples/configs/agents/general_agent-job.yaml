@@ -12,7 +12,7 @@ environment:
   env:
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 agents:
-  - name: claude-code
+  - name: general_agent
     model_name: anthropic/claude-opus-4-8
 datasets:
   - path: examples/tasks

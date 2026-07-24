@@ -1,6 +1,6 @@
 # Agent 评测与运行框架使用说明
 
-本仓库提供一套用于运行和评测 AI Agent 的完整工具链，可以使用 Claude Code 在隔离环境中执行任务，通过自动验证器评估结果，并统一保存每次运行的轨迹、日志、奖励和异常。
+本仓库提供一套用于运行和评测 AI Agent 的完整工具链。内置的通用 Agent 可以在隔离环境中执行任务，通过自动验证器评估结果，并统一保存每次运行的轨迹、日志、奖励和异常。
 
 本文档以“如何使用当前仓库”为主，覆盖环境准备、安装、首次运行、任务编写、批量配置、结果查看、开发测试和常见问题。
 
@@ -8,8 +8,8 @@
 
 你可以使用本仓库完成以下工作：
 
-- 在 Docker 或云端沙箱中运行 Claude Code；
-- 对同一批任务测试不同 Claude 模型和 Claude Code 参数；
+- 在 Docker 或云端沙箱中运行通用 Agent；
+- 对同一批任务测试不同模型和通用 Agent 参数；
 - 运行本地任务、公开数据集或自定义数据集；
 - 并发执行多次尝试，并自动汇总通过率和奖励；
 - 保存 Agent 轨迹、终端记录、验证器日志和产物；
@@ -17,23 +17,22 @@
 - 通过网页查看器分析任务结果和失败原因；
 - 为强化学习或其他训练流程生成 rollout 数据。
 
-### 1.1 使用 Claude Code 进行评测
+### 1.1 使用通用 Agent 进行评测
 
-运行任务时，通过以下参数选择 Claude Code：
+运行任务时，通过以下参数选择通用 Agent：
 
 ```bash
--a claude-code
+-a general_agent
 ```
 
-当前接入实现位于 [`src/harbor/agents/installed/claude_code.py`](src/harbor/agents/installed/claude_code.py)，已经覆盖：
+通用 Agent 已经覆盖完整的评测流程：
 
-- 在每个隔离环境内检查并按需安装 Claude Code；
-- 通过 API Key、OAuth Token 或 Amazon Bedrock 完成认证；
-- 将所选 Claude 模型传给 Claude Code；
-- 使用 Claude Code 非交互模式执行任务指令；
+- 在每个隔离环境内检查并按需安装运行组件；
+- 通过 API Key 或云平台凭据完成认证；
+- 使用指定模型执行任务指令；
 - 收集完整命令输出、会话文件和工具调用轨迹；
 - 将轨迹转换为 ATIF 格式，供结果查看器和分析流程使用；
-- 支持多步骤任务中的 Claude Code 会话恢复；
+- 支持多步骤任务中的会话恢复；
 - 支持 MCP、Skills、权限模式、轮数、推理强度和预算等参数。
 
 最基本的调用格式是：
@@ -41,11 +40,11 @@
 ```bash
 harbor run \
   -p <任务或数据集路径> \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/<Claude模型名称>
 ```
 
-主机上是否已经安装 `claude` 不影响容器内的安装流程：适配器会在任务环境中独立检查和安装 Claude Code，以保证评测环境可复现。
+主机是否预装 Agent 运行组件不影响容器内的安装流程：任务环境会独立检查并按需安装所需组件，以保证评测环境可复现。
 
 ## 2. 仓库结构
 
@@ -61,7 +60,7 @@ harbor run \
 ├── examples/
 │   ├── tasks/           # 可直接运行的示例任务
 │   ├── configs/         # Agent、环境和功能配置示例
-│   ├── configs/agents/  # Claude Code Job 配置示例
+│   ├── configs/agents/  # 通用 Agent Job 配置示例
 │   └── metrics/         # 自定义指标示例
 ├── adapters/            # 外部数据集转换工具
 ├── apps/viewer/         # 结果查看器前端
@@ -151,7 +150,7 @@ pip install "harbor[cloud]"
 
 可用 extras 以 `pyproject.toml` 中的 `[project.optional-dependencies]` 为准。
 
-## 5. 第一次运行 Claude Code
+## 5. 第一次运行通用 Agent
 
 ### 5.1 配置认证
 
@@ -170,7 +169,7 @@ export ANTHROPIC_API_KEY="<your-api-key>"
 ```bash
 uv run harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
@@ -179,7 +178,7 @@ uv run harbor run \
 ```bash
 harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
@@ -187,15 +186,15 @@ harbor run \
 
 1. 读取任务配置与指令；
 2. 构建或启动隔离环境；
-3. 在隔离环境内检查并安装 Claude Code；
-4. 将指令通过 `claude --print` 非交互模式交给 Claude Code；
+3. 在隔离环境内检查并安装 Agent 运行组件；
+4. 以非交互模式执行任务指令；
 5. 执行任务验证器；
-6. 保存 Claude Code 日志、轨迹、奖励和异常；
+6. 保存通用 Agent 日志、轨迹、奖励和异常；
 7. 按配置停止或删除环境。
 
 默认结果写入 `jobs/`。
 
-## 6. Claude Code 接入与配置
+## 6. 通用 Agent 接入与配置
 
 ### 6.1 API Key 认证（推荐）
 
@@ -206,75 +205,23 @@ export ANTHROPIC_API_KEY="<your-api-key>"
 
 harbor run \
   -p <任务或本地数据集路径> \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
-适配器会把密钥传入 Claude Code 所在的隔离环境。也可以通过 `.env` 文件加载：
+适配器会把密钥传入通用 Agent 所在的隔离环境。也可以通过 `.env` 文件加载：
 
 ```bash
 harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   --env-file .env
 ```
 
-### 6.2 Claude Code OAuth/订阅认证
+### 6.2 模型配置
 
-如果要使用 Claude Code 的 OAuth 或订阅 Token，先在可信环境执行：
-
-```bash
-claude setup-token
-```
-
-然后设置：
-
-```bash
-export CLAUDE_CODE_OAUTH_TOKEN="<your-token>"
-export CLAUDE_FORCE_OAUTH=1
-```
-
-再正常运行：
-
-```bash
-harbor run \
-  -p examples/tasks/hello-world \
-  -a claude-code \
-  -m anthropic/claude-opus-4-8
-```
-
-`CLAUDE_FORCE_OAUTH=1` 会让适配器忽略 API Key 并强制使用 OAuth Token。如果设置了该变量但没有设置 `CLAUDE_CODE_OAUTH_TOKEN`，任务会在启动阶段报错。
-
-### 6.3 Amazon Bedrock 认证
-
-启用 Bedrock：
-
-```bash
-export CLAUDE_CODE_USE_BEDROCK=1
-export AWS_REGION=us-east-1
-```
-
-然后使用标准 AWS 凭据链，例如：
-
-```bash
-export AWS_ACCESS_KEY_ID="<access-key>"
-export AWS_SECRET_ACCESS_KEY="<secret-key>"
-export AWS_SESSION_TOKEN="<session-token>"  # 临时凭据需要
-```
-
-也可以使用 `AWS_PROFILE` 或 `AWS_BEARER_TOKEN_BEDROCK`。运行时把 Bedrock 模型 ID 原样传给 `-m`：
-
-```bash
-harbor run \
-  -p examples/tasks/hello-world \
-  -a claude-code \
-  -m '<Bedrock模型ID>'
-```
-
-### 6.4 模型配置
-
-使用 Anthropic 官方 API 时，建议写成 `anthropic/<model-id>`。适配器会在调用 Claude Code 前去掉 `anthropic/` 前缀：
+使用 Anthropic 官方 API 时，建议写成 `anthropic/<model-id>`。适配器会在调用通用 Agent 前去掉 `anthropic/` 前缀：
 
 ```bash
 -m anthropic/claude-opus-4-8
@@ -288,14 +235,14 @@ export ANTHROPIC_MODEL=claude-opus-4-8
 
 显式传入 `-m` 更有利于实验复现。不要继续使用仓库旧示例中可能出现的已退休模型名称。
 
-### 6.5 Claude Code 参数
+### 6.3 通用 Agent 参数
 
-通过可重复的 `--ak key=value` 配置 Claude Code：
+通过可重复的 `--ak key=value` 配置通用 Agent：
 
 ```bash
 harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   --ak max_turns=30 \
   --ak reasoning_effort=high \
@@ -306,31 +253,23 @@ harbor run \
 
 | 参数 | 作用 |
 | --- | --- |
-| `max_turns` | 限制 Claude Code 最大交互轮数 |
+| `max_turns` | 限制通用 Agent 最大交互轮数 |
 | `reasoning_effort` | 推理强度：`low`、`medium`、`high`、`xhigh`、`max` 或 `ultracode` |
 | `max_budget_usd` | 限制单次运行的最高美元预算 |
 | `fallback_model` | 主模型不可用时使用的后备模型 |
-| `append_system_prompt` | 追加 Claude Code 系统提示 |
+| `append_system_prompt` | 追加通用 Agent 系统提示 |
 | `allowed_tools` | 限制允许调用的工具 |
 | `disallowed_tools` | 禁止指定工具 |
-| `permission_mode` | Claude Code 权限模式，隔离评测默认使用 `bypassPermissions` |
+| `permission_mode` | 通用 Agent 权限模式，隔离评测默认使用 `bypassPermissions` |
 
-还可以通过环境变量设置部分参数：
-
-```bash
-export CLAUDE_CODE_MAX_TURNS=30
-export CLAUDE_CODE_EFFORT_LEVEL=high
-export CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000
-```
-
-### 6.6 向 Claude Code 传递额外环境变量
+### 6.4 向通用 Agent 传递额外环境变量
 
 使用 `--ae` / `--agent-env`：
 
 ```bash
 harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   --ae AWS_REGION=us-east-1 \
   --ae CUSTOM_VARIABLE=value
@@ -342,25 +281,25 @@ harbor run \
 harbor run -c path/to/config.yaml --print-config
 ```
 
-### 6.7 MCP、Skills 和会话恢复
+### 6.5 MCP、Skills 和会话恢复
 
-Claude Code 适配器可以接收 MCP 配置和 Skills：
+通用 Agent 适配器可以接收 MCP 配置和 Skills：
 
 ```bash
 harbor run \
   -p path/to/task \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   --mcp-config .mcp.json \
   --skill path/to/skill
 ```
 
-多步骤任务可使用 Claude Code 原生会话恢复：
+多步骤任务可使用通用 Agent 原生会话恢复：
 
 ```bash
 harbor run \
   -p path/to/multi-step-task \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   --resume-trajectory
 ```
@@ -376,14 +315,14 @@ harbor run --help
 ### 7.1 运行单个本地任务
 
 ```bash
-harbor run -p path/to/task -a claude-code \
+harbor run -p path/to/task -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
 例如：
 
 ```bash
-harbor run -p examples/tasks/hello-world -a claude-code \
+harbor run -p examples/tasks/hello-world -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
@@ -394,7 +333,7 @@ harbor run -p examples/tasks/hello-world -a claude-code \
 ```bash
 harbor run \
   -p path/to/local-dataset \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
@@ -411,7 +350,7 @@ harbor dataset list
 ```bash
 harbor run \
   -d "<组织>/<数据集>" \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
@@ -422,7 +361,7 @@ harbor run \
 ```bash
 harbor run \
   -p path/to/tasks \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   -k 3 \
   -n 4
@@ -445,7 +384,7 @@ harbor run \
 ```bash
 harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   -e docker
 ```
@@ -457,7 +396,7 @@ export DAYTONA_API_KEY="<your-api-key>"
 
 harbor run \
   -p path/to/tasks \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   -e daytona \
   -n 20
@@ -473,12 +412,12 @@ harbor run --help
 
 ## 8. 使用 YAML/JSON 配置运行
 
-参数较多、需要复现 Claude Code 实验或运行多个数据集时，建议使用配置文件。
+参数较多、需要复现通用 Agent 实验或运行多个数据集时，建议使用配置文件。
 
-先参考 `examples/configs/agents/claude-code-job.yaml` 创建自己的配置，并将其中模型名更新为当前可用模型，然后运行：
+先参考 `examples/configs/agents/general_agent-job.yaml` 创建自己的配置，并将其中模型名更新为当前可用模型，然后运行：
 
 ```bash
-harbor run -c path/to/claude-code-job.yaml
+harbor run -c path/to/agent-job.yaml
 ```
 
 一个简化的配置示例：
@@ -499,7 +438,7 @@ environment:
   delete: true
 
 agents:
-  - name: claude-code
+  - name: general_agent
     model_name: anthropic/claude-opus-4-8
     kwargs:
       max_turns: 30
@@ -518,7 +457,7 @@ harbor run -c path/to/config.yaml --print-config
 
 更多现成配置位于：
 
-- `examples/configs/agents/claude-code-job.yaml`：Claude Code Job 配置；
+- `examples/configs/agents/general_agent-job.yaml`：通用 Agent Job 配置；
 - `examples/configs/environments/`：不同执行环境；
 - `examples/configs/features/`：产物、模型后端等功能；
 - `examples/configs/tests/`：多容器、GPU、网络策略和多步骤任务。
@@ -582,22 +521,22 @@ harbor task start-env \
 
 可在容器中手动测试依赖、路径和解题步骤。
 
-### 9.4 用 Claude Code 验证任务
+### 9.4 用通用 Agent 验证任务
 
 ```bash
 harbor run \
   -p path/to/my-task \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8
 ```
 
-如果 Claude Code 完成了任务但没有得到预期奖励，应检查：
+如果通用 Agent 完成了任务但没有得到预期奖励，应检查：
 
 - Dockerfile 是否安装了全部依赖；
 - 测试中的路径是否与任务环境一致；
 - `tests/test.sh` 是否总能写入奖励文件；
-- Claude Code 和验证器超时是否足够；
-- `jobs/<job-name>/<trial-name>/agent/claude-code.txt` 中是否有认证或执行错误。
+- 通用 Agent 和验证器超时是否足够；
+- `jobs/<job-name>/<trial-name>/agent/general_agent.txt` 中是否有认证或执行错误。
 
 可参考 `examples/tasks/` 中的单步骤、多步骤、多容器、MCP 和计算机操作任务。
 
@@ -630,7 +569,7 @@ jobs/<job-name>/
 ```bash
 harbor run \
   -p examples/tasks/hello-world \
-  -a claude-code \
+  -a general_agent \
   -m anthropic/claude-opus-4-8 \
   --jobs-dir ./output/jobs
 ```

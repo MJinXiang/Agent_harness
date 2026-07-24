@@ -6,6 +6,7 @@ class AgentName(str, Enum):
     NOP = "nop"
     ACP = "acp"
     CLAUDE_CODE = "claude-code"
+    GENERAL_AGENT = "general_agent"
     CLINE_CLI = "cline-cli"
     TERMINUS = "terminus"
     TERMINUS_1 = "terminus-1"
