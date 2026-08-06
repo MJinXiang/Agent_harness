@@ -1,0 +1,62 @@
+# 裁判网关：唯一的作用是把模型名改成上游认识的。
+#
+# 为什么需要：
+#   benchmark 的 tests/<维度>/<维度>.toml 里 [judge].judge 写死了
+#   "anthropic/claude-sonnet-4-6"。容器里的 harbor-rewardkit==0.1 只认这个 toml
+#   键（runner.py:64），不读环境变量、也没有 CLI 参数。那些 toml 是比赛内容不能
+#   改，所以名字只能在网关这层换。
+#
+# 所有可变的东西都在 .env 里（cp env.example .env），本文件不用动。
+
+model_list:
+  # LLM judge（652 题）：LiteLLM 客户端发请求前会剥掉 provider 前缀，
+  # 所以到达本网关时 model 字段是 "claude-sonnet-4-6"。
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: os.environ/UPSTREAM_MODEL
+      api_base: os.environ/UPSTREAM_BASE_URL
+      api_key: os.environ/UPSTREAM_API_KEY
+      # 顶掉 rewardkit 写死的 4096，给思考和正文都留出空间。
+      # claude-sonnet-4.6 的输出上限是 64k，32000 在范围内。
+      max_tokens: 32000
+
+  # agent judge（env_long_horizon 那 36 题）：走 claude CLI，
+  # --model 的值原样发出，带 anthropic/ 前缀。
+  - model_name: anthropic/claude-sonnet-4-6
+    litellm_params:
+      model: os.environ/UPSTREAM_MODEL
+      api_base: os.environ/UPSTREAM_BASE_URL
+      api_key: os.environ/UPSTREAM_API_KEY
+      # 顶掉 rewardkit 写死的 4096，给思考和正文都留出空间。
+      # claude-sonnet-4.6 的输出上限是 64k，32000 在范围内。
+      max_tokens: 32000
+
+  # 兜底：任何没列出的名字也转到同一个上游，免得偶发的模型名把整题打挂。
+  - model_name: "*"
+    litellm_params:
+      model: os.environ/UPSTREAM_MODEL
+      api_base: os.environ/UPSTREAM_BASE_URL
+      api_key: os.environ/UPSTREAM_API_KEY
+      # 顶掉 rewardkit 写死的 4096，给思考和正文都留出空间。
+      # claude-sonnet-4.6 的输出上限是 64k，32000 在范围内。
+      max_tokens: 32000
+
+litellm_settings:
+  use_chat_completions_url_for_anthropic_messages: true
+
+  # 评测test.sh里面写死max_tokens 4096，llm思考一长，content为none，直接零分
+  drop_params: true
+
+  # 靠 hook 把 max_tokens 顶到 32000，详见 hooks.py。
+  # additional_drop_params: ["max_tokens"] 试过，无效 —— 发给上游的 body 仍是
+  # 4096。这条链路是 /v1/messages -> anthropic_messages 桥接 -> chat completions，
+  # 绕过了 get_optional_params，而那个参数在那里才生效。
+  callbacks: hooks.cap
+
+  # toml 里 judge timeout 是 900
+  request_timeout: 900
+  num_retries: 2
+  telemetry: false
+
+general_settings:
+  master_key: os.environ/PROXY_MASTER_KEY

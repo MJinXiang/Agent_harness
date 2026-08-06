@@ -552,28 +552,42 @@ class BaseInstalledAgent(BaseAgent, ABC):
                 f"{', '.join(sorted(unknown_dependencies))}"
             )
 
-        specs = [self.SYSTEM_PACKAGES[dependency] for dependency in dependencies]
-        if not any(spec.always_install for spec in specs):
-            commands = tuple(
-                dict.fromkeys(command for spec in specs for command in spec.commands)
-            )
+        # Check each dependency separately and install only what is missing.
+        #
+        # Checking them as one all-or-nothing group and then installing the
+        # whole list breaks images that already ship some of these from a
+        # non-distro source: a task image with nodejs 22 from NodeSource is
+        # only missing procps, but installing the full list drags in Debian's
+        # npm, which depends on nodejs:any and forces a downgrade to nodejs 20.
+        # apt cannot resolve that and the whole setup fails with exit 100.
+        missing: list[str] = []
+        for dependency in dependencies:
+            spec = self.SYSTEM_PACKAGES[dependency]
+            if spec.always_install or not spec.commands:
+                missing.append(dependency)
+                continue
             command_check = " && ".join(
                 f"command -v {shlex.quote(command)} >/dev/null 2>&1"
-                for command in commands
+                for command in spec.commands
             )
             check_result = await environment.exec(
                 command=command_check,
                 user="root",
             )
-            if check_result.return_code == 0:
-                return
+            if check_result.return_code != 0:
+                missing.append(dependency)
+
+        if not missing:
+            return
+
+        specs = [self.SYSTEM_PACKAGES[dependency] for dependency in missing]
 
         manager = await self._get_system_package_manager(environment)
         if manager is None:
             self.logger.warning(
                 "No supported package manager found; cannot ensure system "
                 "dependencies: %s",
-                ", ".join(dependencies),
+                ", ".join(missing),
             )
             return
 

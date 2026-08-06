@@ -218,6 +218,10 @@ trials/
 /tasks/
 /datasets/
 !examples/tasks/
+
+# 评测产物。/jobs/ 带前导斜杠只匹配仓库根目录，这些在子目录里，得单独写。
+evaluation/jobs/
+evaluation/proxy/run/
 *.code-workspace
 ignore/
 !src/harbor/tasks/
