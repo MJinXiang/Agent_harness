@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "被测 agent 用的 MCP server，给 search 类任务提供联网检索能力。",
+    "cp mcp.example.json mcp.json 后填真 key；mcp.json 已被 gitignore。",
+    "run_eval.sh 会自动带上 --mcp-config mcp.json（存在才带）。",
+    "",
+    "harbor 把这份配置写成容器里的 ~/.claude.json，等价于在容器里执行:",
+    "  claude mcp add -s user --transport http jina https://mcp.jina.ai/v1 \\",
+    "      --header \"Authorization: Bearer $JINA_API_KEY\"",
+    "  claude mcp add -s user -e SERPER_API_KEY=xxx -- \\",
+    "      npx -y serper-search-scrape-mcp-server",
+    "",
+    "两个前提: 容器要能访问 mcp.jina.ai 和 npm registry;",
+    "serper 走 npx，需要 node —— claude-code agent 的依赖里有 nodejs npm，会装上。"
+  ],
+  "mcpServers": {
+    "jina": {
+      "type": "http",
+      "url": "https://mcp.jina.ai/v1",
+      "headers": {
+        "Authorization": "Bearer jina_xxxxxxxxxxxxxxxx"
+      }
+    },
+    "serper": {
+      "command": "npx",
+      "args": ["-y", "serper-search-scrape-mcp-server"],
+      "env": {
+        "SERPER_API_KEY": "xxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}

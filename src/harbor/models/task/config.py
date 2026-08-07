@@ -621,6 +621,16 @@ class MCPServerConfig(BaseModel):
     url: str | None = None  # required for sse/streamable-http
     command: str | None = None  # for stdio
     args: list[str] = Field(default_factory=list)  # for stdio
+    headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Extra HTTP headers for sse/streamable-http transports, "
+        "e.g. an Authorization bearer token.",
+    )
+    env: dict[str, str] = Field(
+        default_factory=dict,
+        description="Environment variables for the stdio server process, "
+        "e.g. an API key the command reads at startup.",
+    )
 
     @field_validator("transport", mode="before")
     @classmethod

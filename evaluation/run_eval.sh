@@ -214,6 +214,11 @@ args=(
     --yes
 )
 
+# 被测 agent 的 MCP server（search 类任务要联网检索）。
+# 文件在就带上，不在就当没配 —— 别人 clone 下来没填 key 也能跑。
+MCP_CONFIG="${MCP_CONFIG:-$SCRIPT_DIR/mcp.json}"
+if [ -f "$MCP_CONFIG" ]; then args+=(--mcp-config "$MCP_CONFIG"); fi
+
 if [ "$FORCE_BUILD" = "true" ]; then args+=(--force-build); else args+=(--no-force-build); fi
 if [ "$DELETE" = "true" ]; then args+=(--delete); else args+=(--no-delete); fi
 if [ -n "$JOB_NAME" ]; then args+=(--job-name "$JOB_NAME"); fi
@@ -278,8 +283,14 @@ esac
 # 只有 ws_hardest 吃这个变量（数据集自带的 tests/evaluate.py:39 读它）。
 # rubric 那 652 题换不了裁判 —— 容器里的 rewardkit 0.1.0 只认 toml 的
 # [judge].judge，不读环境变量（runner.py:64），只能在 BASE_URL 那层重写模型名。
-ws_judge="${WS_JUDGE_MODEL:-$JUDGE_MODEL}"
-if [ -n "$ws_judge" ]; then args+=(--ve "WS_JUDGE_MODEL=$ws_judge"); fi
+# 必须传，不能留空。task.toml 里是 WS_JUDGE_MODEL = "${WS_JUDGE_MODEL:-}"，
+# 宿主机不设就解析成空串传进容器；而 evaluate.py:39 用的是
+#   os.environ.get("WS_JUDGE_MODEL") or os.environ.get("REWARDKIT_JUDGE", "<默认>")
+# key 存在但值为空时 .get 返回 ""，写死的默认值轮不到，最后 model= 空，
+# litellm 报 "LLM Provider NOT provided"，判等全失败 -> 单元格一律记为不等，
+# 分数变成偏低的下界（不报错，容易当成模型没答好）。
+ws_judge="${WS_JUDGE_MODEL:-${JUDGE_MODEL:-anthropic/claude-sonnet-4-6}}"
+args+=(--ve "WS_JUDGE_MODEL=$ws_judge")
 
 # ── 跑 ──────────────────────────────────────────────────────────
 if [ -n "$SELECTED_TASKS" ]; then

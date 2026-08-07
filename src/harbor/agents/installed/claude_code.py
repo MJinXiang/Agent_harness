@@ -1301,11 +1301,13 @@ class ClaudeCode(BaseInstalledAgent):
         servers: dict[str, dict[str, Any]] = {}
         for server in self.mcp_servers:
             if server.transport == "stdio":
-                servers[server.name] = {
+                entry: dict[str, Any] = {
                     "type": "stdio",
                     "command": server.command,
                     "args": server.args,
                 }
+                if server.env:
+                    entry["env"] = server.env
             else:
                 # Claude Code uses "http" for streamable-http transport
                 transport = (
@@ -1313,7 +1315,10 @@ class ClaudeCode(BaseInstalledAgent):
                     if server.transport == "streamable-http"
                     else server.transport
                 )
-                servers[server.name] = {"type": transport, "url": server.url}
+                entry = {"type": transport, "url": server.url}
+                if server.headers:
+                    entry["headers"] = server.headers
+            servers[server.name] = entry
         claude_json = json.dumps({"mcpServers": servers}, indent=2)
         escaped = shlex.quote(claude_json)
         return f"echo {escaped} > $CLAUDE_CONFIG_DIR/.claude.json"
